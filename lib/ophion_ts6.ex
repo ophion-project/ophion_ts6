@@ -8,7 +8,7 @@ defmodule Ophion.TS6 do
 
   ## Examples
 
-      iex> OphionTs6.hello()
+      iex> Ophion.TS6.hello()
       :world
 
   """
