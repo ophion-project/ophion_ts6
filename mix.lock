@@ -1,3 +1,4 @@
 %{
   "custom_base": {:hex, :custom_base, "0.2.1", "4a832a42ea0552299d81652aa0b1f775d462175293e99dfbe4d7dbaab785a706", [:mix], [], "hexpm"},
+  "ophion_ircv3": {:hex, :ophion_ircv3, "0.1.0", "26d650d9071f60ec9419f182523da6e12d39d2d91a9e0b7c8c94d22eb762a371", [:mix], [], "hexpm"},
 }
