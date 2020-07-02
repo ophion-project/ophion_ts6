@@ -1,4 +1,6 @@
 defmodule Ophion.TS6.State do
+  require Logger
+
   defstruct [
     :name,
     :sid,
@@ -15,6 +17,16 @@ defmodule Ophion.TS6.State do
   def validate(%__MODULE__{name: nil}), do: {:error, {:invalid_state, :invalid_name}}
   def validate(%__MODULE__{sid: nil}), do: {:error, {:invalid_state, :invalid_sid}}
   def validate(_), do: :ok
+
+  def attach_command(%__MODULE__{} = state, command, receiver) do
+    Logger.debug("#{inspect(__MODULE__)}: attaching #{inspect(receiver)} to #{command}")
+
+    with receivers <- (state.commands[command] || []) ++ [receiver],
+         commands <- Map.put(state.commands, command, receivers),
+         new_state <- Map.put(state, :commands, commands) do
+      new_state
+    end
+  end
 end
 
 defmodule Ophion.TS6.StateMachine do
@@ -101,20 +113,9 @@ defmodule Ophion.TS6.StateMachine do
   end
 
   def handle_cast({:attach, command, receiver}, %State{} = state) do
-    Logger.debug("#{inspect(__MODULE__)}: attaching #{inspect(receiver)} for command #{command} @#{inspect(self)}")
-
-    receivers =
-      (state.commands[command] || []) ++ [receiver]
-
-    commands =
-      state.commands
-      |> Map.put(command, receivers)
-
-    state =
-      state
-      |> Map.put(:commands, commands)
-
-    {:noreply, state}
+    with %State{} = new_state <- State.attach_command(state, command, receiver) do
+      {:noreply, new_state}
+    end
   end
 
   defp handle_message(%State{} = state, %Message{} = message) do
