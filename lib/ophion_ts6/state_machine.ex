@@ -100,6 +100,23 @@ defmodule Ophion.TS6.StateMachine do
     {:noreply, state}
   end
 
+  def handle_cast({:attach, command, receiver}, %State{} = state) do
+    Logger.debug("#{inspect(__MODULE__)}: attaching #{inspect(receiver)} for command #{command} @#{inspect(self)}")
+
+    receivers =
+      (state.commands[command] || []) ++ [receiver]
+
+    commands =
+      state.commands
+      |> Map.put(command, receivers)
+
+    state =
+      state
+      |> Map.put(:commands, commands)
+
+    {:noreply, state}
+  end
+
   defp handle_message(%State{} = state, %Message{} = message) do
     Logger.debug("#{inspect(__MODULE__)}: processing #{inspect(message)} @#{inspect(self())}")
 
