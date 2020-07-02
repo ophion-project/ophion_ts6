@@ -29,6 +29,122 @@ defmodule Ophion.TS6.State do
   end
 end
 
+defmodule Ophion.TS6.User do
+  defstruct [
+    :name,
+    :depth,
+    :ts,
+    :umode,
+    :username,
+    :hostname,
+    :ip,
+    :realhost,
+    :account,
+    :realname
+  ]
+
+  alias Ophion.IRCv3.Message
+  alias Ophion.TS6.User
+  alias Ophion.TS6.Server
+
+  @moduledoc "A type describing a user on a TS6 network."
+
+  @doc "Generate an `EUID` %Ophion.IRCv3.Message{} describing the user."
+  def burst(%User{} = user, %Server{} = parent) do
+    %Message{
+      source: parent.sid,
+      verb: "EUID",
+      params: [
+        user.name,
+        user.depth |> Integer.to_string(),
+        user.ts |> Integer.to_string(),
+        user.umode,
+        user.username,
+        user.hostname,
+        user.ip,
+        user.realhost,
+        user.account,
+        user.realname
+      ]
+    }
+  end
+end
+
+defmodule Ophion.TS6.Server do
+  defstruct [
+    :name,
+    :sid,
+    :description,
+    :depth,
+    users: %{},
+    servers: %{}
+  ]
+
+  alias Ophion.IRCv3.Message
+  alias Ophion.TS6.User
+  alias Ophion.TS6.Server
+
+  defp burst_children(%Server{} = parent) do
+    uid_messages =
+      child.users
+      |> Enum.map(fn %User{} = u ->
+        User.burst(u, child)
+      end)
+
+    leaf_messages =
+      child.servers
+      |> Enum.map(fn %Server{} = s ->
+        Server.burst(child, s)
+      end)
+
+    uid_messages ++ leaf_messages
+  end
+
+  def burst(%Server{} = parent, %Server{} = child) do
+    sid_message = %Message{
+      source: parent.sid,
+      verb: "SID",
+      params: [
+        child.name,
+        child.depth |> Integer.to_string(),
+        child.sid,
+        child.description
+      ]
+    }
+
+    [sid_message] ++ burst_children(child)
+  end
+
+  def burst(%Server{} = root, password) when is_binary(password) do
+    pass_message = %Message{
+      verb: "PASS",
+      params: [
+        password,
+        "TS",
+        "6",
+        root.sid
+      ]
+    }
+
+    # XXX: Use configured capabilities.
+    capab_message = %Message{
+      verb: "CAPAB",
+      params: ["QS", "IE", "EX", "ENCAP", "IRCX", "EUID"]
+    }
+
+    server_message = %Message{
+      verb: "SERVER",
+      params: [
+        root.name,
+        root.depth |> Integer.to_string(),
+        root.description
+      ]
+    }
+
+    [pass_message, capab_message, server_message] ++ burst_children(root)
+  end
+end
+
 defmodule Ophion.TS6.StateMachine do
   require Logger
 
@@ -86,6 +202,7 @@ defmodule Ophion.TS6.StateMachine do
   def burst(pid, excluding) do
     GenServer.call(pid, {:burst, excluding})
   end
+
   def burst(pid), do: burst(pid, nil)
 
   @doc """
