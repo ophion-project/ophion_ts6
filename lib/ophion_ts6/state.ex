@@ -134,4 +134,22 @@ defmodule Ophion.TS6.State do
 
     {:ok, state, parent, child}
   end
+
+  @doc "A convenience function which unlinks a server from the graph."
+  def unlink_server(%__MODULE__{} = state, %Server{} = target) do
+    with {:parent, %Server{} = parent} <- {:parent, get_server(state, target.parent_sid)} do
+      state =
+        state
+        |> delete_server(target)
+
+      parent =
+        state
+        |> get_server(parent.sid)
+
+      {:ok, state, parent}
+    else
+      {:parent, nil} ->
+        Logger.warn("#{inspect(__MODULE__)}: could not find parent SID #{target.parent_sid} of server #{target.sid}/#{target.name}!!!")
+    end
+  end
 end
