@@ -6,11 +6,12 @@ defmodule Ophion.TS6.State do
     :sid,
     :uid_generator,
     :connecting_server,
+    :root,
     capabs: ["IE", "EX", "QS", "IRCX", "EUID"],
     required_capabs: ["IE", "EX", "QS", "EUID"],
-    clients: %{},
+    global_users: %{},
+    global_clients: %{},
     channels: %{},
-    servers: %{},
     commands: %{}
   ]
 
@@ -50,7 +51,7 @@ defmodule Ophion.TS6.User do
   @moduledoc "A type describing a user on a TS6 network."
 
   @doc "Generate an `EUID` %Ophion.IRCv3.Message{} describing the user."
-  def burst(%User{} = user, %Server{} = parent) do
+  def burst(%User{} = user, %__MODULE__{} = parent) do
     %Message{
       source: parent.sid,
       verb: "EUID",
@@ -86,15 +87,15 @@ defmodule Ophion.TS6.Server do
 
   defp burst_children(%Server{} = parent) do
     uid_messages =
-      child.users
+      parent.users
       |> Enum.map(fn %User{} = u ->
-        User.burst(u, child)
+        User.burst(u, parent)
       end)
 
     leaf_messages =
-      child.servers
+      parent.servers
       |> Enum.map(fn %Server{} = s ->
-        Server.burst(child, s)
+        Server.burst(parent, s)
       end)
 
     uid_messages ++ leaf_messages
@@ -151,6 +152,7 @@ defmodule Ophion.TS6.StateMachine do
   use GenServer
 
   alias Ophion.IRCv3.Message
+  alias Ophion.TS6.Server
   alias Ophion.TS6.State
   alias Ophion.TS6.UID
 
@@ -251,8 +253,13 @@ defmodule Ophion.TS6.StateMachine do
     {:reply, state, state}
   end
 
-  # XXX: implement these
-  def handle_call({:burst, _excluding}, _from, %State{} = _state) do
-    {:reply, "\r\n"}
+  def handle_call({:burst, _excluding}, _from, %State{} = state) do
+    messages =
+      state.root
+      |> Server.burst()
+      |> Enum.map(&Ophion.IRCv3.compose/1)
+      |> Enum.join("")
+
+    {:reply, messages}
   end
 end
