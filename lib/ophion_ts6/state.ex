@@ -17,6 +17,7 @@ defmodule Ophion.TS6.State do
   ]
 
   alias Ophion.TS6.Server
+  alias Ophion.TS6.User
 
   @moduledoc """
   Describes the internal state of a TS6 state machine.
@@ -45,6 +46,20 @@ defmodule Ophion.TS6.State do
 
       sid when is_binary(sid) ->
         get_server(state, sid)
+
+      _ ->
+        nil
+    end
+  end
+
+  @doc "Retrieves a user instance from the state by UID or name."
+  def get_user(%__MODULE__{} = state, uid_or_name) do
+    case state.global_users[uid_or_name] do
+      %User{} = user ->
+        user
+
+      uid when is_binary(uid) ->
+        get_server(state, uid)
 
       _ ->
         nil

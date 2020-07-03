@@ -5,7 +5,7 @@ defmodule Ophion.TS6.Server do
     :parent_sid,
     description: "???",
     depth: 1,
-    users: %{},
+    users: [],
     servers: []
   ]
 
@@ -17,8 +17,10 @@ defmodule Ophion.TS6.Server do
   defp burst_children(%State{} = state, %Server{} = parent) do
     uid_messages =
       parent.users
-      |> Enum.map(fn %User{} = u ->
-        User.burst(u, parent)
+      |> Enum.map(fn uid ->
+        with %User{} = u <- State.get_user(state, uid) do
+          User.burst(u, parent)
+        end
       end)
 
     leaf_messages =
@@ -76,6 +78,8 @@ defmodule Ophion.TS6.Server do
     messages =
       ([pass_message, capab_message, server_message] ++ burst_children(state, root))
       |> List.flatten()
+
+    messages
   end
 
   def add_child(%Server{} = parent, %Server{} = child) do
