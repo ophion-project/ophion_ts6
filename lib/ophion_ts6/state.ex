@@ -123,6 +123,7 @@ defmodule Ophion.TS6.State do
   def link_server(%__MODULE__{} = state, %Server{} = parent, %Server{} = child) do
     child =
       child
+      |> Map.put(:depth, parent.depth + 1)
       |> Map.put(:parent_sid, parent.sid)
 
     state =

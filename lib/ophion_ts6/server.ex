@@ -4,7 +4,7 @@ defmodule Ophion.TS6.Server do
     :sid,
     :parent_sid,
     description: "???",
-    depth: 0,
+    depth: 1,
     users: %{},
     servers: []
   ]
