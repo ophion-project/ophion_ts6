@@ -152,4 +152,9 @@ defmodule Ophion.TS6.State do
         Logger.warn("#{inspect(__MODULE__)}: could not find parent SID #{target.parent_sid} of server #{target.sid}/#{target.name}!!!")
     end
   end
+
+  @doc "Generate a network burst as a series of Ophion messages."
+  def burst(%__MODULE__{} = state) do
+    Server.burst(state, state.root, state.password)
+  end
 end

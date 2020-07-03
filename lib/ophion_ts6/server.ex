@@ -2,9 +2,9 @@ defmodule Ophion.TS6.Server do
   defstruct [
     :name,
     :sid,
-    :description,
-    :depth,
     :parent_sid,
+    description: "???",
+    depth: 0,
     users: %{},
     servers: []
   ]
@@ -12,8 +12,9 @@ defmodule Ophion.TS6.Server do
   alias Ophion.IRCv3.Message
   alias Ophion.TS6.User
   alias Ophion.TS6.Server
+  alias Ophion.TS6.State
 
-  defp burst_children(%Server{} = parent) do
+  defp burst_children(%State{} = state, %Server{} = parent) do
     uid_messages =
       parent.users
       |> Enum.map(fn %User{} = u ->
@@ -22,14 +23,16 @@ defmodule Ophion.TS6.Server do
 
     leaf_messages =
       parent.servers
-      |> Enum.map(fn %Server{} = s ->
-        Server.burst(parent, s)
+      |> Enum.map(fn sid ->
+        with %Server{} = s <- State.get_server(state, sid) do
+          Server.burst(state, parent, s)
+        end
       end)
 
     uid_messages ++ leaf_messages
   end
 
-  def burst(%Server{} = parent, %Server{} = child) do
+  def burst(%State{} = state, %Server{} = parent, %Server{} = child) do
     sid_message = %Message{
       source: parent.sid,
       verb: "SID",
@@ -41,10 +44,10 @@ defmodule Ophion.TS6.Server do
       ]
     }
 
-    [sid_message] ++ burst_children(child)
+    [sid_message] ++ burst_children(state, child)
   end
 
-  def burst(%Server{} = root, password) when is_binary(password) do
+  def burst(%State{} = state, %Server{} = root, password) when is_binary(password) do
     pass_message = %Message{
       verb: "PASS",
       params: [
@@ -70,7 +73,9 @@ defmodule Ophion.TS6.Server do
       ]
     }
 
-    [pass_message, capab_message, server_message] ++ burst_children(root)
+    messages =
+      ([pass_message, capab_message, server_message] ++ burst_children(state, root))
+      |> List.flatten()
   end
 
   def add_child(%Server{} = parent, %Server{} = child) do

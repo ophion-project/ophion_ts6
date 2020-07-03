@@ -4,7 +4,7 @@ defmodule Ophion.TS6.State.Test do
   alias Ophion.TS6.Server
   alias Ophion.TS6.State
 
-  @root_server %Server{name: "test.", sid: "0SV"}
+  @root_server %Server{name: "test.", sid: "0SV", description: "test server"}
   @root_state %State{name: "test.", sid: "0SV", password: "password"}
               |> State.put_server(@root_server)
 
@@ -113,6 +113,37 @@ defmodule Ophion.TS6.State.Test do
       assert "001" not in root_server.servers
       assert !Map.has_key?(state.global_servers, "002")
       assert !Map.has_key?(state.global_servers, "003")
+    end
+  end
+
+  describe "bursting -" do
+    test "it properly describes a nested topology" do
+      peer_server = %Server{name: "peer.", sid: "001", description: "peer server"}
+
+      {:ok, state, _root_server, peer_server} =
+        @root_state
+        |> State.link_server(@root_server, peer_server)
+
+      nested_server = %Server{name: "nested.", sid: "002", description: "first nested server"}
+
+      {:ok, state, _peer_server, nested_server} =
+        state
+        |> State.link_server(peer_server, nested_server)
+
+      second_nested_server = %Server{name: "second-nested.", sid: "003", description: "second nested server"}
+
+      {:ok, state, _nested_server, _second_nested_server} =
+        state
+        |> State.link_server(nested_server, second_nested_server)
+
+      messages = State.burst(state)
+
+      assert length(messages) == 6
+
+      IO.puts(messages |> Enum.map(fn x ->
+        {:ok, message} = Ophion.IRCv3.compose(x)
+        message
+      end) |> Enum.join(""))
     end
   end
 end

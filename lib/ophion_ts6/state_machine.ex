@@ -107,8 +107,8 @@ defmodule Ophion.TS6.StateMachine do
 
   def handle_call({:burst, _excluding}, _from, %State{} = state) do
     messages =
-      state.root
-      |> Server.burst(state.password)
+      state
+      |> Server.burst(state.root, state.password)
       |> Enum.map(&Ophion.IRCv3.compose/1)
       |> Enum.join("")
 
