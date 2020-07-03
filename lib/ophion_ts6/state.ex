@@ -16,6 +16,12 @@ defmodule Ophion.TS6.State do
     commands: %{}
   ]
 
+  alias Ophion.TS6.Server
+
+  @moduledoc """
+  Describes the internal state of a TS6 state machine.
+  """
+
   def validate(%__MODULE__{name: nil}), do: {:error, {:invalid_state, :invalid_name}}
   def validate(%__MODULE__{sid: nil}), do: {:error, {:invalid_state, :invalid_sid}}
   def validate(%__MODULE__{password: nil}), do: {:error, {:invalid_state, :invalid_password}}
@@ -28,6 +34,70 @@ defmodule Ophion.TS6.State do
          commands <- Map.put(state.commands, command, receivers),
          new_state <- Map.put(state, :commands, commands) do
       new_state
+    end
+  end
+
+  @doc "Retrieves a server instance from the state by SID or name."
+  def get_server(%__MODULE__{} = state, sid_or_name), do: state.global_servers[sid_or_name]
+
+  @doc "Orphan a server from the global server list as well as its parent."
+  def delete_server(%__MODULE__{} = state, %Server{} = server) do
+    with {:parent, %Server{} = parent} <- get_server(state, server.parent_sid) do
+      # delete descendents
+      state =
+        Enum.reduce(server.servers, state, fn child_sid, state ->
+          with %Server{} = server <- get_server(state, child_sid) do
+            delete_server(state, server)
+          end
+        end)
+
+      # now delete the server from its parent
+      parent =
+        parent
+        |> Server.delete_child(server)
+
+      # update the state with the new parent
+      state =
+        state
+        |> put_server(parent)
+
+      # update the state with the new global_servers table
+      global_servers =
+        state.global_servers
+        |> Map.delete(server.sid)
+        |> Map.delete(server.name)
+
+      Map.put(state, :global_servers, global_servers)
+    else
+      {:parent, nil} ->
+        Logger.warn("#{inspect(__MODULE__)}: could not find parent SID #{server.parent_sid} of server #{server.sid}/#{server.name}!!!")
+    end
+  end
+
+  def put_server(%__MODULE__{} = state, %Server{parent_sid: nil} = root) do
+    Map.put(state, :root, root)
+  end
+
+  def put_server(%__MODULE__{} = state, %Server{} = server) do
+    with {:parent, %Server{} = parent} <- get_server(state, server.parent_sid) do
+      parent =
+        parent
+        |> Server.add_child(server)
+
+      state =
+        state
+        |> put_server(parent)
+
+      # update the state with the new global_servers table
+      global_servers =
+        state.global_servers
+        |> Map.delete(server.sid)
+        |> Map.delete(server.name)
+
+      Map.put(state, :global_servers, global_servers)
+    else
+      {:parent, nil} ->
+        Logger.warn("#{inspect(__MODULE__)}: could not find parent SID #{server.parent_sid} of server #{server.sid}/#{server.name}!!!")
     end
   end
 end

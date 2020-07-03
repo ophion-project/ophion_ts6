@@ -4,8 +4,9 @@ defmodule Ophion.TS6.Server do
     :sid,
     :description,
     :depth,
+    :parent_sid,
     users: %{},
-    servers: %{}
+    servers: []
   ]
 
   alias Ophion.IRCv3.Message
@@ -70,5 +71,24 @@ defmodule Ophion.TS6.Server do
     }
 
     [pass_message, capab_message, server_message] ++ burst_children(root)
+  end
+
+  def add_child(%Server{} = parent, %Server{} = child) do
+    servers =
+      if child.sid in parent.servers do
+        parent.servers
+      else
+        parent.servers ++ [child.sid]
+      end
+
+    Map.put(parent, :servers, servers)
+  end
+
+  def delete_child(%Server{} = parent, %Server{} = child) do
+    servers =
+      parent.servers
+      |> List.delete(child.sid)
+
+    Map.put(parent, :servers, servers)
   end
 end
