@@ -139,11 +139,6 @@ defmodule Ophion.TS6.State.Test do
       messages = State.burst(state)
 
       assert length(messages) == 6
-
-      IO.puts(messages |> Enum.map(fn x ->
-        {:ok, message} = Ophion.IRCv3.compose(x)
-        message
-      end) |> Enum.join(""))
     end
   end
 end
