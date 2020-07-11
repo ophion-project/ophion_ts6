@@ -9,7 +9,8 @@ defmodule Ophion.TS6.User do
     :ip,
     :realhost,
     :account,
-    :realname
+    :realname,
+    :parent_sid
   ]
 
   alias Ophion.IRCv3.Message

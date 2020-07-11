@@ -100,4 +100,23 @@ defmodule Ophion.TS6.Server do
 
     Map.put(parent, :servers, servers)
   end
+
+  def add_user(%Server{} = parent, %User{} = child) do
+    users =
+      if child.uid in parent.users do
+        parent.users
+      else
+        parent.users ++ [child.uid]
+      end
+
+    Map.put(parent, :users, users)
+  end
+
+  def delete_user(%Server{} = parent, %User{} = child) do
+    users =
+      parent.users
+      |> List.delete(child.uid)
+
+    Map.put(parent, :users, users)
+  end
 end

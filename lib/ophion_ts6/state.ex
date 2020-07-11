@@ -59,10 +59,33 @@ defmodule Ophion.TS6.State do
         user
 
       uid when is_binary(uid) ->
-        get_server(state, uid)
+        get_user(state, uid)
 
       _ ->
         nil
+    end
+  end
+
+  @doc "Orphan a user from the global user list as well as its parent."
+  def delete_user(%__MODULE__{} = state, %User{} = user) do
+    with {:parent, %Server{} = parent} <- {:parent, get_server(state, user.parent_sid)} do
+      parent =
+        parent
+        |> Server.delete_user(user)
+
+      state =
+        state
+        |> put_server(parent)
+
+      global_users =
+        state.global_users
+        |> Map.delete(user.uid)
+        |> Map.delete(user.name)
+
+      Map.put(state, :global_users, global_users)
+    else
+      {:parent, nil} ->
+        Logger.warn("#{inspect(__MODULE__)}: could not find parent SID #{user.parent_sid} of user #{user.uid}/#{user.name}!!!")
     end
   end
 
@@ -74,6 +97,14 @@ defmodule Ophion.TS6.State do
         Enum.reduce(server.servers, state, fn child_sid, state ->
           with %Server{} = server <- get_server(state, child_sid) do
             delete_server(state, server)
+          end
+        end)
+
+      # delete attached users
+      state =
+        Enum.reduce(server.users, state, fn child_uid, state ->
+          with %User{} = user <- get_user(state, child_uid) do
+            delete_user(state, user)
           end
         end)
 
@@ -97,6 +128,48 @@ defmodule Ophion.TS6.State do
     else
       {:parent, nil} ->
         Logger.warn("#{inspect(__MODULE__)}: could not find parent SID #{server.parent_sid} of server #{server.sid}/#{server.name}!!!")
+    end
+  end
+
+  @doc "Upserts a user, deleting any previous record associated with the UID.  Recommended over put_user/2."
+  def upsert_user(%__MODULE__{} = state, %User{} = new_user) do
+    with {:old_user, %User{} = old_user} <- {:old_user, get_user(state, new_user.uid)} do
+      global_users =
+        state.global_users
+        |> Map.delete(old_user.uid)
+        |> Map.delete(old_user.name)
+
+      state =
+        state
+        |> Map.put(:global_users, global_users)
+
+      put_user(state, new_user)
+    else
+      {:old_user, nil} ->
+        put_user(state, new_user)
+    end
+  end
+
+  def put_user(%__MODULE__{} = state, %User{} = user) do
+    with {:parent, %Server{} = parent} <- {:parent, get_server(state, user.parent_sid)} do
+      parent =
+        parent
+        |> Server.add_user(user)
+
+      state =
+        state
+        |> put_server(parent)
+
+      # update the state with the new global_users table
+      global_users =
+        state.global_users
+        |> Map.put(user.uid, user)
+        |> Map.put(user.name, user.uid)
+
+      Map.put(state, :global_users, global_users)
+    else
+      {:parent, nil} ->
+        Logger.warn("#{inspect(__MODULE__)}: could not find parent SID #{user.parent_sid} of user #{user.uid}/#{user.name}!!!")
     end
   end
 
