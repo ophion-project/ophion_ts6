@@ -33,6 +33,7 @@ defmodule Ophion.TS6.User do
         user.username,
         user.hostname,
         user.ip,
+        user.uid,
         user.realhost,
         user.account,
         user.realname
