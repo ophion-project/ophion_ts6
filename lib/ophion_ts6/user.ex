@@ -1,5 +1,6 @@
 defmodule Ophion.TS6.User do
   defstruct [
+    :uid,
     :name,
     :depth,
     :ts,

@@ -242,6 +242,23 @@ defmodule Ophion.TS6.State do
     end
   end
 
+  @doc "A convenience function which updates a user's parent and links it into the graph."
+  def link_user(%__MODULE__{} = state, %Server{} = parent, %User{} = child) do
+    child =
+      child
+      |> Map.put(:depth, parent.depth + 1)
+      |> Map.put(:parent_sid, parent.sid)
+
+    state =
+      state
+      |> upsert_user(child)
+
+    parent = get_server(state, parent.sid)
+    child = get_user(state, child.uid)
+
+    {:ok, state, parent, child}
+  end
+
   @doc "Generate a network burst as a series of Ophion messages."
   def burst(%__MODULE__{} = state) do
     Server.burst(state, state.root, state.password)
